@@ -43,10 +43,16 @@ Content-Type: application/json
 Réponse :
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "username": "admin"
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "username": "admin",
+  "expiresIn": 3600
 }
 ```
+
+**Note :** 
+- `accessToken` expire après 1 heure
+- `refreshToken` expire après 7 jours
 
 ## 📡 API Endpoints
 

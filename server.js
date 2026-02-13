@@ -36,6 +36,15 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // Créer un utilisateur admin par défaut si n'existe pas
@@ -80,11 +89,34 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Identifiants invalides' });
   }
 
-  const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, {
-    expiresIn: '24h'
-  });
+  // Générer Access Token (1 heure)
+  const accessToken = jwt.sign(
+    { id: user.id, username: user.username }, 
+    process.env.JWT_SECRET, 
+    { expiresIn: '1h' }
+  );
 
-  res.json({ token, username: user.username });
+  // Générer Refresh Token (7 jours)
+  const refreshToken = jwt.sign(
+    { id: user.id, type: 'refresh' }, 
+    process.env.REFRESH_TOKEN_SECRET, 
+    { expiresIn: '7d' }
+  );
+
+  // Sauvegarder le refresh token en base de données
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(
+    user.id, 
+    refreshToken, 
+    expiresAt
+  );
+
+  res.json({ 
+    accessToken, 
+    refreshToken,
+    username: user.username,
+    expiresIn: 3600 // 1 heure en secondes
+  });
 });
 
 // Routes événements (publiques)
@@ -150,6 +182,59 @@ app.delete('/api/events/:id', authenticateToken, (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Route pour rafraîchir l'access token
+app.post('/api/auth/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token manquant' });
+  }
+
+  // Vérifier si le refresh token existe en base de données
+  const storedToken = db.prepare('SELECT * FROM refresh_tokens WHERE token = ?').get(refreshToken);
+
+  if (!storedToken) {
+    return res.status(403).json({ error: 'Refresh token invalide' });
+  }
+
+  // Vérifier si le token a expiré
+  if (new Date(storedToken.expires_at) < new Date()) {
+    db.prepare('DELETE FROM refresh_tokens WHERE token = ?').run(refreshToken);
+    return res.status(403).json({ error: 'Refresh token expiré' });
+  }
+
+  // Vérifier la signature du refresh token
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+    // Générer un nouveau access token
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+    const newAccessToken = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({ 
+      accessToken: newAccessToken,
+      expiresIn: 3600
+    });
+  } catch (error) {
+    return res.status(403).json({ error: 'Refresh token invalide' });
+  }
+});
+
+// Route pour se déconnecter (révoquer le refresh token)
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (refreshToken) {
+    db.prepare('DELETE FROM refresh_tokens WHERE token = ?').run(refreshToken);
+  }
+
+  res.json({ message: 'Déconnexion réussie' });
 });
 
 // Route pour changer le mot de passe
