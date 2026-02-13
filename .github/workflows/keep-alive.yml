@@ -12,6 +12,24 @@ jobs:
     steps:
       - name: Ping Backend
         run: |
-          curl -f https://backend-teo7.onrender.com/api/health || echo "Backend is sleeping, waking up..."
-          sleep 5
-          curl -f https://backend-teo7.onrender.com/api/health && echo "Backend is awake!"
+          echo "🔄 Pinging backend..."
+          
+          # Premier ping (peut prendre du temps si le backend est endormi)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 https://backend-teo7.onrender.com/api/health)
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Backend is alive! (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️  First ping returned HTTP $HTTP_CODE, waiting 10 seconds..."
+            sleep 10
+            
+            # Deuxième tentative
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://backend-teo7.onrender.com/api/health)
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Backend is now awake! (HTTP $HTTP_CODE)"
+            else
+              echo "❌ Backend still not responding (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+          fi
