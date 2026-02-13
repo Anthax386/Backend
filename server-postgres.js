@@ -8,8 +8,29 @@ const { pool, initDatabase } = require('./database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// Middleware CORS
+const allowedOrigins = [
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'https://latourdureliquaire.netlify.app',
+  'https://latour-admin.netlify.app'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Autoriser les requêtes sans origin (comme Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Origin non autorisée:', origin);
+      callback(null, true); // En dev, on autorise tout
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Initialiser la base de données
