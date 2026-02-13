@@ -10,10 +10,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware CORS
 const allowedOrigins = [
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'https://latourdureliquaire.netlify.app',
-  'https://latour-admin.netlify.app'
+  'http://localhost:3000',  // Frontend dev
+  'http://localhost:3002',  // Admin Panel dev
+  'http://localhost:3003',  // Admin Panel dev (port alternatif)
+  'https://latourdureliquaire.netlify.app',  // Frontend production
+  'https://latour-admin.netlify.app'  // Admin Panel production
 ];
 
 app.use(cors({
