@@ -12,6 +12,6 @@ jobs:
     steps:
       - name: Ping Backend
         run: |
-          curl -f https://latour-backend.onrender.com/api/health || echo "Backend is sleeping, waking up..."
+          curl -f https://backend-teo7.onrender.com/api/health || echo "Backend is sleeping, waking up..."
           sleep 5
-          curl -f https://latour-backend.onrender.com/api/health && echo "Backend is awake!"
+          curl -f https://backend-teo7.onrender.com/api/health && echo "Backend is awake!"
